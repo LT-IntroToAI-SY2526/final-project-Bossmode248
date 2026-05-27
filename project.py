@@ -324,6 +324,10 @@ class CasinoGUI:
 
         self.root.configure(bg=TABLE_COLOR)
 
+        self.zoom_level = 1.0
+        self.min_zoom = 0.5
+        self.max_zoom = 2.0
+
         self.table_canvas = tk.Canvas(
             self.root,
             bg=TABLE_COLOR,
@@ -331,6 +335,17 @@ class CasinoGUI:
         )
 
         self.table_canvas.pack(fill="both", expand=True)
+
+        # Bind zoom events
+        self.table_canvas.bind("<MouseWheel>", self.on_mouse_wheel)
+        self.table_canvas.bind("<Button-4>", self.on_mouse_wheel)
+        self.table_canvas.bind("<Button-5>", self.on_mouse_wheel)
+        self.root.bind("<plus>", self.zoom_in)
+        self.root.bind("<equal>", self.zoom_in)
+        self.root.bind("<minus>", self.zoom_out)
+        self.root.bind("<Control-plus>", self.zoom_in)
+        self.root.bind("<Control-equal>", self.zoom_in)
+        self.root.bind("<Control-minus>", self.zoom_out)
 
         # action controls
 
@@ -350,6 +365,16 @@ class CasinoGUI:
         )
 
         self.info_label.pack(pady=5)
+
+        self.zoom_label = tk.Label(
+            self.controls,
+            text=f"Zoom: {int(self.zoom_level * 100)}%",
+            fg="lightblue",
+            bg="#222",
+            font=("Arial", 10)
+        )
+
+        self.zoom_label.pack()
 
         self.raise_scale = tk.Scale(
             self.controls,
@@ -372,6 +397,31 @@ class CasinoGUI:
         self.action = None
 
         self.seat_positions = []
+
+    def on_mouse_wheel(self, event):
+        """Handle mouse wheel zoom events."""
+        if event.num == 5 or event.delta < 0:
+            self.zoom_out()
+        elif event.num == 4 or event.delta > 0:
+            self.zoom_in()
+
+    def zoom_in(self, event=None):
+        """Increase zoom level."""
+        self.zoom_level = min(self.zoom_level + 0.1, self.max_zoom)
+        self.zoom_label.config(text=f"Zoom: {int(self.zoom_level * 100)}%")
+        # Redraw if we're currently showing a table
+        if hasattr(self, '_last_draw_data'):
+            players, community, pot, current_player, reveal_all = self._last_draw_data
+            self.draw_table(players, community, pot, current_player, reveal_all)
+
+    def zoom_out(self, event=None):
+        """Decrease zoom level."""
+        self.zoom_level = max(self.zoom_level - 0.1, self.min_zoom)
+        self.zoom_label.config(text=f"Zoom: {int(self.zoom_level * 100)}%")
+        # Redraw if we're currently showing a table
+        if hasattr(self, '_last_draw_data'):
+            players, community, pot, current_player, reveal_all = self._last_draw_data
+            self.draw_table(players, community, pot, current_player, reveal_all)
 
     def clear_buttons(self):
 
@@ -411,14 +461,18 @@ class CasinoGUI:
         reveal_all=False
     ):
 
+        # Store draw data for redrawing on zoom
+        self._last_draw_data = (players, community, pot, current_player, reveal_all)
+
         self.table_canvas.delete("all")
 
         # Use actual canvas size for responsive layout; ensure sensible defaults
         width = max(1400, self.table_canvas.winfo_width())
         height = max(850, self.table_canvas.winfo_height())
 
-        self.scale_x = float(width) / 1400.0
-        self.scale_y = float(height) / 850.0
+        # Apply zoom level to scaling
+        self.scale_x = float(width) / 1400.0 * self.zoom_level
+        self.scale_y = float(height) / 850.0 * self.zoom_level
 
         sx = lambda v: int(v * self.scale_x)
         sy = lambda v: int(v * self.scale_y)
