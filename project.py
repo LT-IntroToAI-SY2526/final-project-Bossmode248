@@ -320,7 +320,7 @@ class CasinoGUI:
 
         self.root.title("Casino Texas Hold'em")
 
-        self.root.geometry("1400x900")
+        self.root.geometry("1400x1050")
 
         self.root.configure(bg=TABLE_COLOR)
 
@@ -331,7 +331,8 @@ class CasinoGUI:
         self.table_canvas = tk.Canvas(
             self.root,
             bg=TABLE_COLOR,
-            highlightthickness=0
+            highlightthickness=0,
+            height=850
         )
 
         self.table_canvas.pack(fill="both", expand=True)
@@ -347,14 +348,16 @@ class CasinoGUI:
         self.root.bind("<Control-equal>", self.zoom_in)
         self.root.bind("<Control-minus>", self.zoom_out)
 
-        # action controls
+        # action controls - below canvas, no overlap
 
         self.controls = tk.Frame(
             self.root,
-            bg="#222"
+            bg="#222",
+            height=150
         )
 
         self.controls.pack(fill="x")
+        self.controls.pack_propagate(False)
 
         self.info_label = tk.Label(
             self.controls,
@@ -392,7 +395,7 @@ class CasinoGUI:
             bg="#222"
         )
 
-        self.button_frame.pack(pady=10)
+        self.button_frame.pack(pady=5)
 
         self.action = None
 
@@ -517,7 +520,7 @@ class CasinoGUI:
             (1150, 460),
             (350, 140),
             (1050, 140),
-            (700, 40)
+            (700, 80)
         ]
 
         for i, player in enumerate(players):
