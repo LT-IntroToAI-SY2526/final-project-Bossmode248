@@ -452,16 +452,18 @@ class CasinoGUI:
             self.draw_card(x, sy(320), card)
             x += int(90 * self.scale_x)
 
-        # draw pot chips just below the river/community cards (lowered)
-        self.draw_chips(sx(700), sy(480), pot)
+        # draw pot chips just below the river/community cards (raised slightly)
+        # moved up a bit to avoid overlapping with player cards
+        self.draw_chips(sx(700), sy(450), pot)
 
+        # shift player anchor positions slightly upward to avoid overlap
         positions = [
-            (700, 650),
-            (250, 500),
-            (1150, 500),
-            (350, 180),
-            (1050, 180),
-            (700, 80)
+            (700, 610),
+            (250, 460),
+            (1150, 460),
+            (350, 140),
+            (1050, 140),
+            (700, 40)
         ]
 
         for i, player in enumerate(players):
