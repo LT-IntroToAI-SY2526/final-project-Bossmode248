@@ -918,7 +918,17 @@ class PokerGame:
                     self.pot += total
 
                     acted = {p}
+                # if only one player remains (everyone else folded), finish hand
+                remaining = [pl for pl in self.players if not pl.folded]
+                if len(remaining) == 1:
+                    # reveal all community cards if deck is available
+                    if hasattr(self, 'deck') and self.deck is not None:
+                        while len(self.community) < 5:
+                            self.community.extend(self.deck.deal(1))
 
+                    # perform showdown and end the hand
+                    self.showdown()
+                    return True
             if everyone_done:
                 break
 
@@ -981,6 +991,8 @@ class PokerGame:
             p.reset_for_hand()
 
         deck = Deck()
+        # make deck accessible to betting_round for revealing remaining cards
+        self.deck = deck
 
         for _ in range(2):
 
@@ -996,7 +1008,11 @@ class PokerGame:
             self.dealer + 3
         ) % len(self.players)
 
-        self.betting_round(preflop_start)
+        if self.betting_round(preflop_start):
+            self.dealer = (
+                self.dealer + 1
+            ) % len(self.players)
+            return True
 
         # flop
         self.reset_bets()
@@ -1005,10 +1021,14 @@ class PokerGame:
             deck.deal(3)
         )
 
-        self.betting_round(
+        if self.betting_round(
             (self.dealer + 1)
             % len(self.players)
-        )
+        ):
+            self.dealer = (
+                self.dealer + 1
+            ) % len(self.players)
+            return True
 
         # turn
         self.reset_bets()
@@ -1017,10 +1037,14 @@ class PokerGame:
             deck.deal(1)
         )
 
-        self.betting_round(
+        if self.betting_round(
             (self.dealer + 1)
             % len(self.players)
-        )
+        ):
+            self.dealer = (
+                self.dealer + 1
+            ) % len(self.players)
+            return True
 
         # river
         self.reset_bets()
@@ -1029,16 +1053,24 @@ class PokerGame:
             deck.deal(1)
         )
 
-        self.betting_round(
+        if self.betting_round(
             (self.dealer + 1)
             % len(self.players)
-        )
+        ):
+            self.dealer = (
+                self.dealer + 1
+            ) % len(self.players)
+            return True
 
         self.showdown()
 
         self.dealer = (
             self.dealer + 1
         ) % len(self.players)
+
+        # cleanup deck reference
+        if hasattr(self, 'deck'):
+            self.deck = None
 
         return True
 
