@@ -1,23 +1,28 @@
 # ============================================
 # CASINO TEXAS HOLD'EM
-# Full GUI Poker Table Version
+# RESPONSIVE GUI VERSION
 # ============================================
 
 import tkinter as tk
 from tkinter import ttk, messagebox
 import random
 import itertools
+import math
 
 # ============================================
 # CONFIG
 # ============================================
 
-RANKS = ['2', '3', '4', '5', '6', '7', '8',
-         '9', '10', 'J', 'Q', 'K', 'A']
+RANKS = [
+    '2', '3', '4', '5', '6', '7',
+    '8', '9', '10', 'J', 'Q', 'K', 'A'
+]
 
 SUITS = ['♠', '♥', '♦', '♣']
 
-RANK_VALUES = {r: i for i, r in enumerate(RANKS, start=2)}
+RANK_VALUES = {
+    r: i for i, r in enumerate(RANKS, start=2)
+}
 
 HAND_NAMES = [
     'High Card',
@@ -41,19 +46,15 @@ STARTING_CHIPS = 2000
 # ============================================
 
 PROFILE_EMOJIS = [
-    '🎰', '🃏', '💎', '👑', '🏆', '⭐', '🤠', '🚀', '🔥', '💪',
-    '🎭', '🤡', '👹', '🤬', '🎮', '🎲', '🤔', '🏅', '💰', '🤑',
-    '😎', '🤐', '🧠', '💯', '❤️‍🔥', '👻', '🔮', '🎁', '🎉', '🌟',
-    '✨', '🫠', '🐦‍🔥', '⚡', '🔔', '😜', '🤓', '😈', '🧐', '🥱',
-    '🦁', '🐯', '🦅', '💩', '🤖', '👾', '🎰', '💸', '☠️', '💳'
+    '🎰', '🃏', '💎', '👑', '🏆',
+    '⭐', '🤠', '🚀', '🔥', '💪'
 ]
 
 OPPONENT_NAMES = [
-    'The Ace', 'Shadow', 'Diamond', 'Bluff Master', 'The Gambler',
-    'Lucky Luke', 'Thunder', 'Phantom', 'The Wolf', 'Maverick',
-    'Iron Fist', 'Silent Storm', 'Cash King', 'The Tiger', 'Poker Face',
-    'High Roller', 'The Shark', 'Fortune Seeker', 'The Legend', 'Royal Flush',
-    'Quick Draw', 'The Sphinx', 'Chip Leader', 'The Dealer', 'Midnight Rider'
+    'The Ace', 'Shadow', 'Diamond',
+    'Bluff Master', 'The Gambler',
+    'Lucky Luke', 'Thunder',
+    'Phantom', 'The Wolf', 'Maverick'
 ]
 
 # ============================================
@@ -63,11 +64,13 @@ OPPONENT_NAMES = [
 class Card:
 
     def __init__(self, rank, suit):
+
         self.rank = rank
         self.suit = suit
         self.value = RANK_VALUES[rank]
 
     def __repr__(self):
+
         return f"{self.rank}{self.suit}"
 
 # ============================================
@@ -77,6 +80,7 @@ class Card:
 class Deck:
 
     def __init__(self):
+
         self.cards = [
             Card(rank, suit)
             for suit in SUITS
@@ -86,7 +90,11 @@ class Deck:
         random.shuffle(self.cards)
 
     def deal(self, amount=1):
-        return [self.cards.pop() for _ in range(amount)]
+
+        return [
+            self.cards.pop()
+            for _ in range(amount)
+        ]
 
 # ============================================
 # PLAYER
@@ -99,6 +107,7 @@ class Player:
         self.name = name
         self.chips = chips
         self.human = human
+
         self.emoji = random.choice(PROFILE_EMOJIS)
 
         self.hand = []
@@ -146,7 +155,10 @@ def straight_high(ranks):
 
 def evaluate_five(cards):
 
-    ranks = sorted([c.value for c in cards], reverse=True)
+    ranks = sorted(
+        [c.value for c in cards],
+        reverse=True
+    )
 
     suits = [c.suit for c in cards]
 
@@ -172,8 +184,10 @@ def evaluate_five(cards):
     vals = sorted(counts.values(), reverse=True)
 
     if flush and straight:
+
         if straight == 14:
             return (9, [14])
+
         return (8, [straight])
 
     if vals == [4, 1]:
@@ -218,92 +232,48 @@ def best_hand(cards):
 # AI
 # ============================================
 
-def evaluate_preflop(hand):
-
-    vals = sorted([c.value for c in hand], reverse=True)
-
-    pair = vals[0] == vals[1]
-
-    suited = hand[0].suit == hand[1].suit
-
-    connected = abs(vals[0] - vals[1]) == 1
-
-    if pair:
-        if vals[0] >= 11:
-            return 9
-        return 7
-
-    if vals[0] >= 14 and vals[1] >= 11:
-        return 8
-
-    if suited and connected:
-        return 6
-
-    if suited:
-        return 5
-
-    if vals[0] >= 12:
-        return 4
-
-    return 2
-
 def ai_action(player, to_call, community):
-
+    # estimate hand strength (0-9) from evaluated best hand
     if community:
         strength = best_hand(
             player.hand + community
         )[0][0]
     else:
-        strength = evaluate_preflop(player.hand)
+        # simple preflop heuristic: paired or high cards count as somewhat strong
+        vals = sorted([c.value for c in player.hand], reverse=True)
+        if vals[0] == vals[1]:
+            strength = 5
+        elif vals[0] >= 11 and vals[1] >= 10:
+            strength = 5
+        else:
+            strength = 2
 
-    # Don't fold easily on all-ins if we have reasonable chips
-    if to_call == player.chips and player.chips > 0:
-        # Has decent hand - call the all-in
-        if strength >= 3:
-            return ("call", 0)
-        # Bluff/gamble occasionally even with weak hands
-        if random.random() < 0.4:
-            return ("call", 0)
-        return ("fold", 0)
-
-    # Strong hand - aggressive play
-    if strength >= 8:
-        if random.random() < 0.4 and player.chips > to_call + 100:
-            return ("raise", random.randint(75, 150))
-        return ("call", 0)
-
-    if strength >= 6:
-        if random.random() < 0.3 and player.chips > to_call + 50:
-            return ("raise", 50)
-        return ("call", 0)
-
-    if strength >= 4:
-        if to_call <= 50:
-            return ("call", 0)
-        # Bluff occasionally with mid-strength hands
-        if random.random() < 0.25:
-            return ("raise", min(50, player.chips))
-        if random.random() < 0.35:
-            return ("call", 0)
-        return ("fold", 0)
-
-    if strength == 3:
-        # Bluff on low-strength hands sometimes
-        if to_call == 0:
-            if random.random() < 0.2:
-                return ("raise", random.randint(20, 50))
-            return ("check", 0)
-        if random.random() < 0.2:
-            return ("call", 0)
-        return ("fold", 0)
-
+    # no bet to call: sometimes bluff by raising
     if to_call == 0:
-        # Free check with weak hand
-        if random.random() < 0.1:
-            return ("raise", random.randint(20, 40))
+        if random.random() < 0.18 and player.chips > 0:
+            raise_amount = min(player.chips, random.randint(20, 100))
+            return ("raise", raise_amount)
         return ("check", 0)
 
-    if random.random() < 0.15:
+    # strong hands -> prefer raising
+    if strength >= 6:
+        if random.random() < 0.75 and player.chips > 0:
+            raise_amount = min(player.chips, max(to_call, int(player.chips * 0.2)))
+            return ("raise", raise_amount)
+        return ("call", 0)
+
+    # decent hands -> call or small raise
+    if strength >= 4:
+        if random.random() < 0.4 and player.chips > 0:
+            raise_amount = min(player.chips, int(player.chips * 0.1) + to_call)
+            return ("raise", raise_amount)
+        return ("call", 0)
+
+    # weak hands: sometimes bluff/call
+    if random.random() < 0.25:
+        if random.random() < 0.3 and player.chips > 0:
+            raise_amount = min(player.chips, random.randint(10, 80))
+            return ("raise", raise_amount)
         return ("call", 0)
 
     return ("fold", 0)
@@ -320,44 +290,54 @@ class CasinoGUI:
 
         self.root.title("Casino Texas Hold'em")
 
-        self.root.geometry("1400x1050")
+        screen_width = self.root.winfo_screenwidth()
+        screen_height = self.root.winfo_screenheight()
+
+        window_width = int(screen_width * 0.9)
+        window_height = int(screen_height * 0.9)
+
+        self.root.geometry(
+            f"{window_width}x{window_height}"
+        )
+
+        self.root.minsize(1000, 700)
 
         self.root.configure(bg=TABLE_COLOR)
 
         self.zoom_level = 1.0
-        self.min_zoom = 0.5
-        self.max_zoom = 2.0
+
+        # =====================================
+        # CANVAS
+        # =====================================
 
         self.table_canvas = tk.Canvas(
             self.root,
             bg=TABLE_COLOR,
-            highlightthickness=0,
-            height=850
+            highlightthickness=0
         )
 
-        self.table_canvas.pack(fill="both", expand=True)
+        self.table_canvas.pack(
+            fill="both",
+            expand=True
+        )
 
-        # Bind zoom events
-        self.table_canvas.bind("<MouseWheel>", self.on_mouse_wheel)
-        self.table_canvas.bind("<Button-4>", self.on_mouse_wheel)
-        self.table_canvas.bind("<Button-5>", self.on_mouse_wheel)
-        self.root.bind("<plus>", self.zoom_in)
-        self.root.bind("<equal>", self.zoom_in)
-        self.root.bind("<minus>", self.zoom_out)
-        self.root.bind("<Control-plus>", self.zoom_in)
-        self.root.bind("<Control-equal>", self.zoom_in)
-        self.root.bind("<Control-minus>", self.zoom_out)
+        # redraw on resize
+        self.table_canvas.bind(
+            "<Configure>",
+            self.on_resize
+        )
 
-        # action controls - below canvas, no overlap
+        # =====================================
+        # CONTROLS
+        # =====================================
 
         self.controls = tk.Frame(
             self.root,
             bg="#222",
-            height=150
+            height=120
         )
 
         self.controls.pack(fill="x")
-        self.controls.pack_propagate(False)
 
         self.info_label = tk.Label(
             self.controls,
@@ -368,16 +348,6 @@ class CasinoGUI:
         )
 
         self.info_label.pack(pady=5)
-
-        self.zoom_label = tk.Label(
-            self.controls,
-            text=f"Zoom: {int(self.zoom_level * 100)}%",
-            fg="lightblue",
-            bg="#222",
-            font=("Arial", 10)
-        )
-
-        self.zoom_label.pack()
 
         self.raise_scale = tk.Scale(
             self.controls,
@@ -399,32 +369,71 @@ class CasinoGUI:
 
         self.action = None
 
-        self.seat_positions = []
+    # =====================================
+    # RESIZE
+    # =====================================
 
-    def on_mouse_wheel(self, event):
-        """Handle mouse wheel zoom events."""
-        if event.num == 5 or event.delta < 0:
-            self.zoom_out()
-        elif event.num == 4 or event.delta > 0:
-            self.zoom_in()
+    def on_resize(self, event):
 
-    def zoom_in(self, event=None):
-        """Increase zoom level."""
-        self.zoom_level = min(self.zoom_level + 0.1, self.max_zoom)
-        self.zoom_label.config(text=f"Zoom: {int(self.zoom_level * 100)}%")
-        # Redraw if we're currently showing a table
         if hasattr(self, '_last_draw_data'):
-            players, community, pot, current_player, reveal_all = self._last_draw_data
-            self.draw_table(players, community, pot, current_player, reveal_all)
 
-    def zoom_out(self, event=None):
-        """Decrease zoom level."""
-        self.zoom_level = max(self.zoom_level - 0.1, self.min_zoom)
-        self.zoom_label.config(text=f"Zoom: {int(self.zoom_level * 100)}%")
-        # Redraw if we're currently showing a table
-        if hasattr(self, '_last_draw_data'):
             players, community, pot, current_player, reveal_all = self._last_draw_data
-            self.draw_table(players, community, pot, current_player, reveal_all)
+
+            self.draw_table(
+                players,
+                community,
+                pot,
+                current_player,
+                reveal_all
+            )
+
+    # =====================================
+    # CLAMP
+    # =====================================
+
+    def clamp(self, value, minimum, maximum):
+
+        return max(minimum, min(value, maximum))
+
+    # =====================================
+    # SEAT POSITIONS
+    # =====================================
+
+    def get_seat_positions(
+        self,
+        width,
+        height,
+        player_count
+    ):
+
+        cx = width / 2
+        cy = height / 2 + 30
+
+        rx = width * 0.38
+        ry = height * 0.34
+
+        positions = []
+
+        for i in range(player_count):
+
+            angle = (
+                (2 * math.pi * i / player_count)
+                - (math.pi / 2)
+            )
+
+            x = cx + math.cos(angle) * rx
+            y = cy + math.sin(angle) * ry
+
+            x = self.clamp(x, 150, width - 150)
+            y = self.clamp(y, 120, height - 150)
+
+            positions.append((x, y))
+
+        return positions
+
+    # =====================================
+    # BUTTONS
+    # =====================================
 
     def clear_buttons(self):
 
@@ -455,6 +464,10 @@ class CasinoGUI:
 
         return self.action
 
+    # =====================================
+    # DRAW TABLE
+    # =====================================
+
     def draw_table(
         self,
         players,
@@ -464,78 +477,125 @@ class CasinoGUI:
         reveal_all=False
     ):
 
-        # Store draw data for redrawing on zoom
-        self._last_draw_data = (players, community, pot, current_player, reveal_all)
+        self._last_draw_data = (
+            players,
+            community,
+            pot,
+            current_player,
+            reveal_all
+        )
 
         self.table_canvas.delete("all")
 
-        # Use actual canvas size for responsive layout; ensure sensible defaults
-        width = max(1400, self.table_canvas.winfo_width())
-        height = max(850, self.table_canvas.winfo_height())
+        width = self.table_canvas.winfo_width()
+        height = self.table_canvas.winfo_height()
 
-        # Apply zoom level to scaling
-        self.scale_x = float(width) / 1400.0 * self.zoom_level
-        self.scale_y = float(height) / 850.0 * self.zoom_level
+        self.scale = min(
+            width / 1400,
+            height / 900
+        )
 
-        sx = lambda v: int(v * self.scale_x)
-        sy = lambda v: int(v * self.scale_y)
+        s = lambda v: int(v * self.scale)
 
-        self.reveal_all = reveal_all
+        # =====================================
+        # TABLE
+        # =====================================
 
-        # table (scaled)
+        margin_x = width * 0.12
+        margin_y = height * 0.12
+
         self.table_canvas.create_oval(
-            sx(150),
-            sy(100),
-            sx(1250),
-            sy(700),
+            margin_x,
+            margin_y,
+            width - margin_x,
+            height - margin_y,
             fill="#0d7a28",
             outline="#083f15",
-            width=max(1, int(10 * self.scale_x))
+            width=max(2, s(8))
         )
 
-        # pot label (scaled)
+        # =====================================
+        # POT
+        # =====================================
+
         self.table_canvas.create_text(
-            sx(700),
-            sy(260),
+            width / 2,
+            height * 0.63,
             text=f"POT: {pot}",
             fill="white",
-            font=("Arial", max(10, int(24 * self.scale_y)), "bold")
+            font=(
+                "Arial",
+                max(12, s(22)),
+                "bold"
+            )
         )
 
-        # community cards (scaled positions)
-        x = sx(520)
+        # =====================================
+        # COMMUNITY CARDS
+        # =====================================
 
-        for card in community:
-            self.draw_card(x, sy(320), card)
-            x += int(90 * self.scale_x)
+        card_w = s(70)
+        spacing = s(20)
 
-        # draw pot chips just below the river/community cards (raised slightly)
-        # moved up a bit to avoid overlapping with player cards
-        self.draw_chips(sx(700), sy(450), pot)
+        total_width = (
+            len(community) * card_w
+            + max(0, len(community)-1) * spacing
+        )
 
-        # shift player anchor positions slightly upward to avoid overlap
-        positions = [
-            (700, 610),
-            (250, 460),
-            (1150, 460),
-            (350, 140),
-            (1050, 140),
-            (700, 80)
-        ]
+        start_x = (width - total_width) / 2
 
-        for i, player in enumerate(players):
-            px, py = positions[i]
-            self.draw_player(player, sx(px), sy(py), current_player)
+        y = height * 0.42
 
-    def draw_card(self, x, y, card, hidden=False):
-        # scale card size with canvas
-        sx = getattr(self, 'scale_x', 1)
-        sy = getattr(self, 'scale_y', 1)
+        for i, card in enumerate(community):
 
-        w = max(20, int(70 * sx))
-        h = max(30, int(100 * sy))
+            self.draw_card(
+                start_x + i * (card_w + spacing),
+                y,
+                card
+            )
 
-        color = "red" if card.suit in ['♥', '♦'] else "black"
+        # =====================================
+        # PLAYERS
+        # =====================================
+
+        positions = self.get_seat_positions(
+            width,
+            height,
+            len(players)
+        )
+
+        for player, (x, y) in zip(players, positions):
+
+            self.draw_player(
+                player,
+                x,
+                y,
+                current_player,
+                reveal_all
+            )
+
+    # =====================================
+    # DRAW CARD
+    # =====================================
+
+    def draw_card(
+        self,
+        x,
+        y,
+        card,
+        hidden=False
+    ):
+
+        s = self.scale
+
+        w = max(40, int(70 * s))
+        h = max(60, int(100 * s))
+
+        color = (
+            "red"
+            if card.suit in ['♥', '♦']
+            else "black"
+        )
 
         self.table_canvas.create_rectangle(
             x,
@@ -544,79 +604,49 @@ class CasinoGUI:
             y + h,
             fill="white",
             outline="black",
-            width=max(1, int(3 * sx))
+            width=max(1, int(2 * s))
         )
 
         if hidden:
-            self.table_canvas.create_text(
-                x + w // 2,
-                y + h // 2,
-                text="🂠",
-                font=("Arial", max(8, int(24 * sy)))
-            )
+
+            text = "🂠"
+
         else:
-            self.table_canvas.create_text(
-                x + w // 2,
-                y + h // 2,
-                text=f"{card.rank}{card.suit}",
-                fill=color,
-                font=("Arial", max(8, int(12 * sy)), "bold")
-            )
 
-    def draw_chips(self, x, y, amount, max_stack=5):
-        """Draw a small stack of chips and an amount label."""
-        # Determine number of visible chips (1..max_stack)
-        if amount <= 0:
-            return
-        # Responsive sizes
-        sx = getattr(self, 'scale_x', 1)
-        sy = getattr(self, 'scale_y', 1)
+            text = f"{card.rank}{card.suit}"
 
-        chip_radius = max(6, int(10 * ((sx + sy) / 2)))
-        spacing = max(3, int(6 * sy))
-
-        # Determine total visual chips (max 3 stacks * max_stack)
-        max_total = max_stack * 3
-        ratio = min(10.0, amount / max(1, STARTING_CHIPS))
-        total_visual = min(max_total, max(1, int(ratio * max_total)))
-
-        # distribute across up to 3 stacks
-        stacks = 3
-        base = total_visual // stacks
-        rem = total_visual % stacks
-        counts = [base + (1 if i < rem else 0) for i in range(stacks)]
-
-        # draw stacks side by side
-        stack_spacing = chip_radius * 3
-        start_x = x - int(stack_spacing)
-        for s_idx, cnt in enumerate(counts):
-            cx = start_x + s_idx * stack_spacing
-            for i in range(cnt):
-                cy = y - (i * spacing)
-                self.table_canvas.create_oval(
-                    cx - chip_radius,
-                    cy - chip_radius,
-                    cx + chip_radius,
-                    cy + chip_radius,
-                    fill="#e63946",
-                    outline="#2b2b2b",
-                    width=1
-                )
-
-        # amount label to the right
-        label_x = x + chip_radius + int(28 * sx)
-        label_y = y - ((max(counts) - 1) * spacing) / 2
         self.table_canvas.create_text(
-            label_x,
-            label_y,
-            text=f"{amount}",
-            fill="white",
-            font=("Arial", max(8, int(12 * sy)), "bold")
+            x + w / 2,
+            y + h / 2,
+            text=text,
+            fill=color,
+            font=(
+                "Arial",
+                max(10, int(14 * s)),
+                "bold"
+            )
         )
 
-    def draw_player(self, player, x, y, current_player):
+    # =====================================
+    # DRAW PLAYER
+    # =====================================
 
-        color = "yellow" if player == current_player else "white"
+    def draw_player(
+        self,
+        player,
+        x,
+        y,
+        current_player,
+        reveal_all
+    ):
+
+        s = self.scale
+
+        color = (
+            "yellow"
+            if player == current_player
+            else "white"
+        )
 
         status = ""
 
@@ -626,40 +656,57 @@ class CasinoGUI:
         elif player.all_in:
             status = "ALL-IN"
 
-        # scaled emoji above name
-        sx = getattr(self, 'scale_x', 1)
-        sy = getattr(self, 'scale_y', 1)
-
+        # emoji
         self.table_canvas.create_text(
             x,
-            y - int(65 * sy),
+            y - 70 * s,
             text=player.emoji,
-            font=("Arial", max(10, int(28 * sy)))
+            font=(
+                "Arial",
+                max(14, int(26 * s))
+            )
         )
 
+        # info
         self.table_canvas.create_text(
             x,
             y,
-            text=f"{player.name}\nChips: {player.chips}\nBet: {player.current_bet}\n{status}",
+            text=(
+                f"{player.name}\n"
+                f"Chips: {player.chips}\n"
+                f"Bet: {player.current_bet}\n"
+                f"{status}"
+            ),
             fill=color,
-            font=("Arial", max(8, int(14 * sy)), "bold")
+            font=(
+                "Arial",
+                max(10, int(13 * s)),
+                "bold"
+            )
         )
 
-        # draw player's chip stack to the right of the player info
-        self.draw_chips(x + int(120 * sx), y, player.chips)
+        # cards
+        card_w = int(70 * s)
 
-        start_x = x - int(50 * sx)
+        spacing = int(card_w * 0.75)
+
+        start_x = x - spacing / 2
+
+        card_y = y + 50 * s
 
         for i, card in enumerate(player.hand):
 
-            # Hide AI cards during play unless reveal_all is set
-            hidden = (not player.human) and (not getattr(self, 'reveal_all', False))
+            hidden = (
+                (not player.human)
+                and
+                (not reveal_all)
+            )
 
             self.draw_card(
-                start_x + i * int(65 * sx),
-                y + int(60 * sy),
+                start_x + i * spacing,
+                card_y,
                 card,
-                hidden=hidden
+                hidden
             )
 
 # ============================================
@@ -682,21 +729,26 @@ class PokerGame:
         self.big_blind = big_blind
 
         self.players = [
-            Player("YOU", STARTING_CHIPS, human=True)
+            Player(
+                "YOU",
+                STARTING_CHIPS,
+                human=True
+            )
         ]
 
-        # Use random opponent names
         used_names = set()
-        for i in range(opponents):
+
+        for _ in range(opponents):
+
             name = random.choice(OPPONENT_NAMES)
+
             while name in used_names:
                 name = random.choice(OPPONENT_NAMES)
+
             used_names.add(name)
+
             self.players.append(
-                Player(
-                    name,
-                    STARTING_CHIPS
-                )
+                Player(name, STARTING_CHIPS)
             )
 
         self.dealer = 0
@@ -719,23 +771,32 @@ class PokerGame:
 
     def post_blinds(self):
 
-        sb_index = (self.dealer + 1) % len(self.players)
-        bb_index = (self.dealer + 2) % len(self.players)
+        sb_index = (
+            self.dealer + 1
+        ) % len(self.players)
+
+        bb_index = (
+            self.dealer + 2
+        ) % len(self.players)
 
         sb = self.players[sb_index]
         bb = self.players[bb_index]
 
-        sb_amount = min(sb.chips, self.small_blind)
-        bb_amount = min(bb.chips, self.big_blind)
+        sb_amount = min(
+            sb.chips,
+            self.small_blind
+        )
+
+        bb_amount = min(
+            bb.chips,
+            self.big_blind
+        )
 
         sb.chips -= sb_amount
         bb.chips -= bb_amount
 
         sb.current_bet = sb_amount
         bb.current_bet = bb_amount
-
-        sb.total_bet = sb_amount
-        bb.total_bet = bb_amount
 
         self.pot += sb_amount + bb_amount
 
@@ -745,20 +806,27 @@ class PokerGame:
 
         while True:
 
-            highest = max(p.current_bet for p in self.players)
+            highest = max(
+                p.current_bet
+                for p in self.players
+            )
 
             everyone_done = True
 
             for i in range(len(self.players)):
 
-                idx = (start_index + i) % len(self.players)
+                idx = (
+                    start_index + i
+                ) % len(self.players)
 
                 p = self.players[idx]
 
                 if p.folded or p.all_in:
                     continue
 
-                to_call = highest - p.current_bet
+                to_call = (
+                    highest - p.current_bet
+                )
 
                 if p in acted and to_call == 0:
                     continue
@@ -775,27 +843,32 @@ class PokerGame:
                 if p.human:
 
                     if to_call == 0:
+
                         options = [
                             "check",
                             "raise",
-                            "allin",
                             "fold"
                         ]
+
                     else:
+
                         options = [
                             "call",
                             "raise",
-                            "allin",
                             "fold"
                         ]
 
                     self.gui.info_label.config(
-                        text=f"Your turn — To Call: {to_call}"
+                        text=f"To Call: {to_call}"
                     )
 
-                    action = self.gui.wait_for_action(options)
+                    action = self.gui.wait_for_action(
+                        options
+                    )
 
-                    raise_amount = self.gui.raise_scale.get()
+                    raise_amount = (
+                        self.gui.raise_scale.get()
+                    )
 
                 else:
 
@@ -811,58 +884,38 @@ class PokerGame:
 
                     acted.add(p)
 
-                    continue
-
                 elif action == "check":
 
                     acted.add(p)
 
                 elif action == "call":
 
-                    amount = min(to_call, p.chips)
+                    amount = min(
+                        to_call,
+                        p.chips
+                    )
 
                     p.chips -= amount
 
                     p.current_bet += amount
-                    p.total_bet += amount
 
                     self.pot += amount
-
-                    if p.chips == 0:
-                        p.all_in = True
 
                     acted.add(p)
 
                 elif action == "raise":
 
-                    total = to_call + raise_amount
+                    total = (
+                        to_call + raise_amount
+                    )
 
                     total = min(total, p.chips)
 
                     p.chips -= total
 
                     p.current_bet += total
-                    p.total_bet += total
 
                     self.pot += total
-
-                    if p.chips == 0:
-                        p.all_in = True
-
-                    acted = {p}
-
-                elif action == "allin":
-
-                    amount = p.chips
-
-                    p.chips = 0
-
-                    p.current_bet += amount
-                    p.total_bet += amount
-
-                    self.pot += amount
-
-                    p.all_in = True
 
                     acted = {p}
 
@@ -894,16 +947,15 @@ class PokerGame:
 
         share = self.pot // len(winners)
 
-        remainder = self.pot % len(winners)
+        for w in winners:
+            w.chips += share
 
-        for i, w in enumerate(winners):
-
-            payout = share
-
-            if i < remainder:
-                payout += 1
-
-            w.chips += payout
+        self.gui.draw_table(
+            self.players,
+            self.community,
+            self.pot,
+            reveal_all=True
+        )
 
         names = ", ".join(
             p.name for p in winners
@@ -913,38 +965,13 @@ class PokerGame:
             winners[0].hand_rank[0]
         ]
 
-        # Draw final table with all cards revealed (responsive)
-        self.gui.draw_table(
-            self.players,
-            self.community,
-            self.pot,
-            reveal_all=True
-        )
-
         messagebox.showinfo(
             "Showdown",
             f"{names} win(s)\n\n"
-            f"Hand: {hand_name}\n"
-            f"Pot: {self.pot}"
+            f"Hand: {hand_name}"
         )
 
-    def remove_broke_players(self):
-
-        self.players = [
-            p for p in self.players
-            if p.chips > 0
-        ]
-
     def play_hand(self):
-
-        if len(self.players) <= 1:
-
-            messagebox.showinfo(
-                "Game Over",
-                "You won the table!"
-            )
-
-            return False
 
         self.community = []
 
@@ -956,7 +983,9 @@ class PokerGame:
         deck = Deck()
 
         for _ in range(2):
+
             for p in self.players:
+
                 p.hand.extend(
                     deck.deal(1)
                 )
@@ -964,31 +993,12 @@ class PokerGame:
         self.post_blinds()
 
         preflop_start = (
-            (self.dealer + 3)
-            % len(self.players)
-        )
+            self.dealer + 3
+        ) % len(self.players)
 
         self.betting_round(preflop_start)
 
-        if len(self.active_players()) == 1:
-
-            winner = self.active_players()[0]
-
-            winner.chips += self.pot
-
-            messagebox.showinfo(
-                "Hand Over",
-                f"{winner.name} wins uncontested!"
-            )
-
-            self.dealer = (
-                self.dealer + 1
-            ) % len(self.players)
-
-            return True
-
-        # FLOP
-
+        # flop
         self.reset_bets()
 
         self.community.extend(
@@ -1000,8 +1010,7 @@ class PokerGame:
             % len(self.players)
         )
 
-        # TURN
-
+        # turn
         self.reset_bets()
 
         self.community.extend(
@@ -1013,8 +1022,7 @@ class PokerGame:
             % len(self.players)
         )
 
-        # RIVER
-
+        # river
         self.reset_bets()
 
         self.community.extend(
@@ -1027,8 +1035,6 @@ class PokerGame:
         )
 
         self.showdown()
-
-        self.remove_broke_players()
 
         self.dealer = (
             self.dealer + 1
@@ -1063,10 +1069,9 @@ class CasinoLobby:
         ).pack(pady=40)
 
         tables = [
-            ("Heads-Up Table", 1, 10, 20),
-            ("3 Player Table", 2, 25, 50),
-            ("6-Max Table", 5, 50, 100),
-            ("High Roller Table", 5, 100, 200),
+            ("Heads-Up", 1, 10, 20),
+            ("3 Players", 2, 25, 50),
+            ("6-Max", 5, 50, 100),
         ]
 
         for name, opps, sb, bb in tables:
@@ -1121,17 +1126,6 @@ def main():
 
     while True:
 
-        human = game.players[0]
-
-        if human.chips < game.big_blind:
-
-            messagebox.showinfo(
-                "Busted",
-                "You are out of chips!"
-            )
-
-            break
-
         cont = game.play_hand()
 
         if not cont:
@@ -1139,3 +1133,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
